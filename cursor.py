@@ -513,6 +513,37 @@ class SnowflakeCursor(object):
                                        errvalue)
         return self
 
+    def mogrify(self, command, params=None, _do_reset=True):
+        u"""
+        Returns mogrified command/query with parsed params identical to how
+        cursor.execute() would parse params.
+        """
+        self.logger.debug(u'executing SQL/command')
+        if self.is_closed():
+            Error.errorhandler_wrapper(
+                self.connection, self,
+                DatabaseError,
+                {u'msg': u"Cursor is closed in execute.",
+                 u'errno': ER_CURSOR_IS_CLOSED})
+
+        if _do_reset:
+            self.reset()
+        command = command.strip(u' \t\n\r') if command else None
+        if not command:
+            self.logger.warning(u'execute: no query is given to mogrify')
+            return
+
+        processed_params = self.__process_params(params)
+        self.logger.debug(u'binding: %s with input=%s, processed=%s',
+                          command,
+                          params, processed_params)
+        if len(processed_params) > 0:
+            query = command % processed_params
+        else:
+            query = command
+        return query
+
+
     def _is_dml(self, data):
         return u'statementTypeId' in data \
                and int(data[u'statementTypeId']) in \
